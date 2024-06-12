@@ -2,7 +2,10 @@ from task1_forward_kinematics import *
 from scipy.spatial.transform import Rotation as R
 from Lab2_IK_answers import *
 class MetaData:
-    def __init__(self, joint_name, joint_parent, joint_initial_position, root_joint, end_joint):
+    def __init__(self, joint_name, joint_parent, joint_initial_position, 
+                 root_joint, # 骨骼链的指定 开始节点
+                 end_joint #   骨骼链的指定 末端节点
+                 ):
         """
         一些固定信息，其中joint_initial_position是T-pose下的关节位置，可以用于计算关节相互的offset
         root_joint是固定节点的索引，并不是RootJoint节点
@@ -26,17 +29,23 @@ class MetaData:
             你可能会需要这两个输出。
         """
         
-        # 从end节点开始，一直往上找，直到找到腰部节点
+        # 从 结束节点开始，一直往上找，直到找到 root节点
         path1 = [self.joint_name.index(self.end_joint)]
+        
+        # 检查 当前path1的最后一个节点是否是root关节
         while self.joint_parent[path1[-1]] != -1:
+            # 将其父节点添加到path1中
             path1.append(self.joint_parent[path1[-1]])
             
-        # 从root节点开始，一直往上找，直到找到腰部节点
+        # 从 开始节点，一直往上找，直到找到root节点
         path2 = [self.joint_name.index(self.root_joint)]
+        #  
         while self.joint_parent[path2[-1]] != -1:
             path2.append(self.joint_parent[path2[-1]])
         
-        # 合并路径，消去重复的节点
+        # 合并路径，消去重复的节点，得到 真正的 “指定起始关节”--->"指定结束关节"的路径
+        print("path1:", path1)
+        print("path2:", path2)
         while path1 and path2 and path2[-1] == path1[-1]:
             path1.pop()
             a = path2.pop()
@@ -44,6 +53,8 @@ class MetaData:
         path2.append(a)
         path = path2 + list(reversed(path1))
         path_name = [self.joint_name[i] for i in path]
+        print("++++++++最终控制的骨骼链++++++++++++")
+        print(path_name)
         return path, path_name, path1, path2
     
 
@@ -53,13 +64,16 @@ def part1_simple(viewer, target_pos):
     """
     完成part1_inverse_kinematics，我们将根节点设在腰部，末端节点设在左手
     """
+    # 在世界坐标中，创建一个marker点
     viewer.create_marker(target_pos, [1, 0, 0, 1])
     joint_name, joint_parent, joint_initial_position = viewer.get_meta_data()
+
     meta_data = MetaData(joint_name, joint_parent, joint_initial_position, 'RootJoint', 'lWrist_end')
     joint_position = viewer.get_joint_positions()
     joint_orientation = viewer.get_joint_orientations()
     
-    joint_position, joint_orientation = part1_inverse_kinematics(meta_data, joint_position, joint_orientation, target_pos)
+    joint_position, joint_orientation = part1_inverse_kinematics(
+        meta_data, joint_position, joint_orientation, target_pos)
     viewer.show_pose(joint_name, joint_position, joint_orientation)
     viewer.run()
     pass
@@ -75,7 +89,8 @@ def part1_hard(viewer, target_pos):
     joint_position = viewer.get_joint_positions()
     joint_orientation = viewer.get_joint_orientations()
     
-    joint_position, joint_orientation = part1_inverse_kinematics(meta_data, joint_position, joint_orientation, target_pos)
+    joint_position, joint_orientation = part1_inverse_kinematics(
+        meta_data, joint_position, joint_orientation, target_pos)
     viewer.show_pose(joint_name, joint_position, joint_orientation)
     viewer.run()
     pass
@@ -168,11 +183,12 @@ def main():
     viewer = SimpleViewer()
     
     # part1
-    # part1_simple(viewer, np.array([0.5, 0.75, 0.5]))
+    part1_simple(viewer, np.array([0.5, 0.75, 0.5]))
+    
     # part1_hard(viewer, np.array([0.5, 0.5, 0.5]))
     # part1_animation(viewer, np.array([0.5, 0.5, 0.5]))
     
-    # part2
+    # # part2
     # part2(viewer, 'data/walk60.bvh')
     
     # bonus(viewer, np.array([0.5, 0.5, 0.5]), np.array([0, 0.5, 0.5]))
