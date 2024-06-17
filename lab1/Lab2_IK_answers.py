@@ -20,16 +20,19 @@ def part1_inverse_kinematics(meta_data, joint_positions, joint_orientations, tar
     joint_offset = [meta_data.joint_initial_position[i] - meta_data.joint_initial_position[joint_parent[i]] for i in
                     range(len(joint_positions))]
     joint_offset[0] = np.array([0., 0., 0.])
+    # ik链
     joint_ik_path, _, _, _ = meta_data.get_path_from_root_to_end()
     # 用于迭代计算IK链条上各个关节的旋转
     local_rotation = [R.from_quat(joint_orientations[joint_parent[i]]).inv() * R.from_quat(joint_orientations[i]) for i
                       in range(len(joint_orientations))]
     local_rotation[0] = R.from_quat(joint_orientations[0])
-    # 梯度下降方法
+    # 梯度下降方法 的 输入参数
     joint_offset_t = [torch.tensor(data) for data in joint_offset]
     joint_positions_t = [torch.tensor(data) for data in joint_positions]
+    # 可更新的
     joint_orientations_t = [torch.tensor(R.from_quat(data).as_matrix(), requires_grad=True) for data in joint_orientations]
     local_rotation_t = [torch.tensor(data.as_matrix(),requires_grad=True) for data in local_rotation]
+    # 目标位置
     target_pose_t = torch.tensor(target_pose)
 
     epoch = 300
@@ -37,26 +40,31 @@ def part1_inverse_kinematics(meta_data, joint_positions, joint_orientations, tar
     for _ in range(epoch):
         for j in range(len(joint_ik_path)):
             # 更新链上结点的位置
+            # 当前joint name
             a = chain_current = joint_ik_path[j]
+            # ik链 上一个 joint name
             b = chain_parent = joint_ik_path[j - 1]
-            if j == 0:
+            if j == 0:  # ik-root-joint 位置和旋转保持 不变
                 local_rotation_t[a] = local_rotation_t[a]
                 joint_positions_t[a] = joint_positions_t[a]
-            elif b == joint_parent[a]:  # 当前结点是前一结点的子节点，正向
+            elif b == joint_parent[a]:  # 当前结点是前一结点的子节点，正向骨骼链(从root出发到末端)
                 joint_orientations_t[a] = joint_orientations_t[b] @ local_rotation_t[a]
                 joint_positions_t[a] = joint_positions_t[b] + joint_offset_t[a] @ torch.transpose(joint_orientations_t[b],0,1)
-            else:  # a = joint_parent[b] 当前结点是前一节点的父结点，逆向
+            else:  # a = joint_parent[b] 当前结点是前一节点的父结点，反向骨骼链(从末端触发到root)
                 joint_orientations_t[a] = joint_orientations_t[b] @ torch.transpose(local_rotation_t[b],0,1)
                 joint_positions_t[a] = joint_positions_t[b] + (-joint_offset_t[a]) @ torch.transpose(joint_orientations_t[a],0,1)
 
-
+        # loss函数: 当前joint的position- rarget_pose_position,以此更新旋转角
+        # 正则化，保持旋转矩阵是单位矩阵，是一个物理上有意义的旋转
         optimize_target = torch.norm(joint_positions_t[joint_ik_path[-1]] - target_pose_t)
         optimize_target.backward()
         for num in joint_ik_path:
-            if local_rotation_t[num].grad is not None:
+            if local_rotation_t[num].grad is not None: # 如果该joint的旋转角产生了梯度
+                # 根据 梯度值 ， 更新旋转角
                 tmp = local_rotation_t[num] - alpha * local_rotation_t[num].grad
                 local_rotation_t[num] = torch.tensor(tmp, requires_grad=True)
-
+    
+    # 获得当前ik链上的joint姿态
     for j in range(len(joint_ik_path)):
         a = chain_current = joint_ik_path[j]
         b = chain_parent = joint_ik_path[j - 1]
@@ -66,11 +74,12 @@ def part1_inverse_kinematics(meta_data, joint_positions, joint_orientations, tar
         elif b == joint_parent[a]:  # 当前结点是前一结点的子节点，正向
              joint_orientations[a] = (R.from_quat(joint_orientations[b]) * R.from_matrix(local_rotation_t[a].detach().numpy())).as_quat()
              joint_positions[a] = joint_positions[b] + joint_offset[a] * np.asmatrix(R.from_quat(joint_orientations[b]).as_matrix()).transpose()
-        else:  # a = joint_parent[b] 当前结点是前一节点的父结点，逆向
+        else:  # a = joint_parent[b] 当前结点是前一节点的父结点，反向
              joint_orientations[a] = (R.from_quat(joint_orientations[b]) * R.from_matrix(local_rotation_t[b].detach().numpy()).inv()).as_quat()
              joint_positions[a] = joint_positions[b] + (-joint_offset[b]) * np.asmatrix(R.from_quat(joint_orientations[a]).as_matrix()).transpose()
 
-    # 我们获得了链条上每个关节的Orientation和Position，然后我们只需要更新非链上结点的位置
+    # 我们获得了链条上每个关节的Orientation和Position，
+    # 然后我们只需要更新非链上结点的位置（主要是ik链后面的joint）
     ik_path_set = set(joint_ik_path)
     for i in range(len(joint_positions)):
         if i in ik_path_set:
@@ -228,7 +237,8 @@ def bonus_inverse_kinematics(meta_data, joint_positions, joint_orientations, lef
                 joint_orientations_t[j] = joint_orientations_t[joint_parent[j]] @ local_rotation_t[j]
                 joint_positions_t[j] = joint_positions_t[joint_parent[j]] + (joint_offset_t[j]) @ torch.transpose(
                     joint_orientations_t[joint_parent[j]], 0, 1)
-
+        
+        # 规范化，保持旋转矩阵为单位矩阵，即物理有效
         optimize_target2 = torch.norm(joint_positions_t[joint_ik_path2[0]] - target_pose_t_2)
         optimize_target2.backward()
         for num in joint_ik_path2:

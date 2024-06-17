@@ -43,8 +43,8 @@ def part1_translation_and_rotation(viewer:SimpleViewer, setting_id):
     
     # 读取设置
     bvh = bvh_list[setting_id]  # 待操作的BVH动作
-    pos = pos_xz_list[setting_id]  # 平移到该位置
-    facing_xz = facing_xz_list[setting_id]  # 面向该方向
+    pos = pos_xz_list[setting_id]  # 运动到该位置
+    facing_xz = facing_xz_list[setting_id]  # 面向该方向（x-z平面， Y向上）
     frame = frame_list[setting_id] # 帧ID 
 
     original_motion = BVHMotion(bvh)
@@ -142,8 +142,8 @@ def main():
     # 请自行取消需要的注释并更改测试setting_id
     # 请不要同时取消多个注释，否则前者会被后者覆盖
     
-    part1_translation_and_rotation(viewer, 0) # 数字代表不同的测试setting
-    # part2_interpolate(viewer, 1) # 数字代表不同期望的前进速度
+    # part1_translation_and_rotation(viewer, 0) # 数字代表不同的测试setting
+    part2_interpolate(viewer, 1) # 数字代表不同期望的前进速度
     # part3_build_loop(viewer)
     # part4_concatenate(viewer, 0) # 数字代表不同的测试setting
     viewer.run()

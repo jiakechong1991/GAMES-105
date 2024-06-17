@@ -68,12 +68,17 @@ def part1_simple(viewer, target_pos):
     viewer.create_marker(target_pos, [1, 0, 0, 1])
     joint_name, joint_parent, joint_initial_position = viewer.get_meta_data()
 
-    meta_data = MetaData(joint_name, joint_parent, joint_initial_position, 'RootJoint', 'lWrist_end')
+    meta_data = MetaData(joint_name, joint_parent, joint_initial_position, 
+                         'RootJoint', 'lWrist_end')  # ik链 的起始和结束关节
+    # 
     joint_position = viewer.get_joint_positions()
     joint_orientation = viewer.get_joint_orientations()
     
     joint_position, joint_orientation = part1_inverse_kinematics(
-        meta_data, joint_position, joint_orientation, target_pos)
+        meta_data, 
+        joint_position, # now
+        joint_orientation, # now
+        target_pos)  # target
     viewer.show_pose(joint_name, joint_position, joint_orientation)
     viewer.run()
     pass

@@ -249,8 +249,9 @@ class BVHMotion():
             theta = 2 * np.pi - theta
         new_root_Ry = R.from_euler("Y", theta, degrees=False)
         R_y, _ = self.decompose_rotation_with_yaxis(res.joint_rotation[frame_num, 0, :])
-
+        # 获得更新后的旋转角
         res.joint_rotation[:, 0, :] = (new_root_Ry * R_y.inv() * R.from_quat(res.joint_rotation[:, 0, :])).as_quat()
+        # 根据旋转角，更新全部joint的position
         for i in range(len(res.joint_position)):
              res.joint_position[i, 0,:] = (new_root_Ry * R_y.inv()).as_matrix()  @ (res.joint_position[i, 0, :] - res.joint_position[frame_num, 0, :]) + res.joint_position[frame_num,0,:]
 
