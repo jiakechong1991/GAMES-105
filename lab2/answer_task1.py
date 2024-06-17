@@ -99,6 +99,8 @@ class BVHMotion():
         '''
             读取bvh文件，初始化元数据和局部数据
         '''
+        # 读取BVH的骨架信息
+        # joint_offset： 关节的局部偏移量(相对父关节)
         self.joint_name, self.joint_parent, self.joint_channel, joint_offset = \
             load_meta_data(bvh_file_path)
         
@@ -127,7 +129,7 @@ class BVHMotion():
 
     def batch_forward_kinematics(self, joint_position = None, joint_rotation = None):
         '''
-        利用自身的metadata进行批量前向运动学
+        利用自身的metadata进行批量 【前向运动学】
         joint_position: (N,M,3)的ndarray, 局部平移
         joint_rotation: (N,M,4)的ndarray, 用四元数表示的局部旋转
         '''
@@ -208,6 +210,13 @@ class BVHMotion():
         Ry = np.zeros_like(rotation)
         Rxz = np.zeros_like(rotation)
         # TODO: 你的代码
+        # 将四元数旋转分解为绕y轴的旋转，和转轴在xz平面的旋转，先得到Ry，再逆运算得到Rxz
+        Ry = R.from_quat(rotation).as_euler("XYZ", degrees=True)
+        Ry = R.from_euler("XYZ", [0, Ry[1], 0], degrees=True)
+
+        # Ry = R.from_quat(rotation).
+
+        Rxz = Ry.inv() * R.from_quat(rotation)
         
         return Ry, Rxz
     
@@ -226,12 +235,26 @@ class BVHMotion():
             输入的target_facing_direction_xz的norm不一定是1
         '''
         
-        res = self.raw_copy() # 拷贝一份，不要修改原始数据
+        res:BVHMotion  = self.raw_copy() # 拷贝一份，不要修改原始数据
         
         # 比如说，你可以这样调整第frame_num帧的根节点平移
         offset = target_translation_xz - res.joint_position[frame_num, 0, [0,2]]
         res.joint_position[:, 0, [0,2]] += offset
         # TODO: 你的代码
+
+        sin_theta_xz = np.cross(target_facing_direction_xz, np.array([0, 1])) / np.linalg.norm(target_facing_direction_xz)
+        cos_theta_xz = np.dot(target_facing_direction_xz, np.array([0, 1])) / np.linalg.norm(target_facing_direction_xz)
+        theta = np.arccos(cos_theta_xz)
+        if sin_theta_xz < 0:
+            theta = 2 * np.pi - theta
+        new_root_Ry = R.from_euler("Y", theta, degrees=False)
+        R_y, _ = self.decompose_rotation_with_yaxis(res.joint_rotation[frame_num, 0, :])
+
+        res.joint_rotation[:, 0, :] = (new_root_Ry * R_y.inv() * R.from_quat(res.joint_rotation[:, 0, :])).as_quat()
+        for i in range(len(res.joint_position)):
+             res.joint_position[i, 0,:] = (new_root_Ry * R_y.inv()).as_matrix()  @ (res.joint_position[i, 0, :] - res.joint_position[frame_num, 0, :]) + res.joint_position[frame_num,0,:]
+
+
         return res
 
 # part2

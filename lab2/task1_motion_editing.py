@@ -32,30 +32,37 @@ class ShowBVHUpdate():
         self.cur_frame = (self.cur_frame + 1) % (self.translation.shape[0]*speed_inv)
         return task.cont
     
-def part1_translation_and_rotation(viewer, setting_id):
+def part1_translation_and_rotation(viewer:SimpleViewer, setting_id):
     
     # 一些不同的设置
+    # 根据setting_id 选择不同的数据
     bvh_list = ['motion_material/walk_forward.bvh', 'motion_material/run_forward.bvh', 'motion_material/walk_and_turn_left.bvh']
     pos_xz_list = [np.array([-4,4]), np.array([2,4]), np.array([6,1])]
     facing_xz_list = [np.array([1,1]), np.array([5,1]), np.array([1,1])]
     frame_list = [0, -1, -1]
     
     # 读取设置
-    bvh = bvh_list[setting_id]
-    pos = pos_xz_list[setting_id]
-    facing_xz = facing_xz_list[setting_id]
-    frame = frame_list[setting_id]
+    bvh = bvh_list[setting_id]  # 待操作的BVH动作
+    pos = pos_xz_list[setting_id]  # 平移到该位置
+    facing_xz = facing_xz_list[setting_id]  # 面向该方向
+    frame = frame_list[setting_id] # 帧ID 
 
     original_motion = BVHMotion(bvh)
+    # 使第frame_num帧的根节点平移为target_translation_xz, 水平面朝向为target_facing_direction_xz
     new_motion = original_motion.translation_and_rotation(frame, pos, facing_xz)
     
+    # 计算FK,获得关节位置和方向
     translation, orientation = new_motion.batch_forward_kinematics()
     task = ShowBVHUpdate(viewer, new_motion.joint_name, translation, orientation) 
     viewer.addTask(task.update)
     
     # 画些参考点
-    viewer.create_arrow(np.array([pos[0],1e-3,pos[1]]), facing_xz)
-    viewer.create_marker(np.array([pos[0],0,pos[1]]) ,[0,1,0,1])
+    # 创建箭头
+    viewer.create_arrow(
+        np.array([pos[0],1e-3,pos[1]]),  # 箭头起始点位置
+        facing_xz)  # 朝向
+    # 创建标记点
+    viewer.create_marker(np.array([pos[0], 0, pos[1]]) ,[0,1,0,1])
     return
 
 def part2_interpolate(viewer, v):

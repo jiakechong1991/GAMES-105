@@ -24,6 +24,7 @@ def load_motion_data(bvh_file_path):
 
 def part1_calculate_T_pose(bvh_file_path):
     """请填写以下内容
+    从BVH中加载 骨骼层级信息
     输入： bvh 文件路径
     输出:
         joint_name: List[str]，字符串列表，包含着所有关节的名字
@@ -144,6 +145,8 @@ def part3_retarget_func(T_pose_bvh_path, A_pose_bvh_path):
 
     motion_data = []
     # for i in range(1): debug init pose. lShoulder add 0,0,-45, rShoulder add 0,0,45
+    # 相同骨架下，Tpose转A-pose，只需要所有肩膀关节，旋转45度即可
+    # BVH中，保存的都是相对关节旋转
     for i in range(A_motion_data.shape[0]):
         data = []
         for joint in T_joint_name:
@@ -166,6 +169,7 @@ def part3_retarget_func(T_pose_bvh_path, A_pose_bvh_path):
                 continue
             else:
                 data += list(A_motion_data[i][index * 3 + 3: index * 3 + 6])
+        # data就是 这一帧retarget后的数据
         motion_data.append(np.array(data).reshape(1, -1))
 
     motion_data = np.concatenate(motion_data, axis=0)
