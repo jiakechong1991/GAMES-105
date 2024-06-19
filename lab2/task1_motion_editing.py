@@ -33,7 +33,11 @@ class ShowBVHUpdate():
         return task.cont
     
 def part1_translation_and_rotation(viewer:SimpleViewer, setting_id):
-    
+    """
+    控制BVH运动的位置和面朝向 到指定的 位置和面朝向
+    因为BVH中的 position是相当于偏移，ratation是局部旋转，因此
+    我们只需要调整根节点的水平position和rotation
+    """
     # 一些不同的设置
     # 根据setting_id 选择不同的数据
     bvh_list = ['motion_material/walk_forward.bvh', 'motion_material/run_forward.bvh', 'motion_material/walk_and_turn_left.bvh']
@@ -43,7 +47,7 @@ def part1_translation_and_rotation(viewer:SimpleViewer, setting_id):
     
     # 读取设置
     bvh = bvh_list[setting_id]  # 待操作的BVH动作
-    pos = pos_xz_list[setting_id]  # 运动到该位置
+    pos = pos_xz_list[setting_id]  # 目标位置
     facing_xz = facing_xz_list[setting_id]  # 面向该方向（x-z平面， Y向上）
     frame = frame_list[setting_id] # 帧ID 
 
@@ -51,7 +55,7 @@ def part1_translation_and_rotation(viewer:SimpleViewer, setting_id):
     # 使第frame_num帧的根节点平移为target_translation_xz, 水平面朝向为target_facing_direction_xz
     new_motion = original_motion.translation_and_rotation(frame, pos, facing_xz)
     
-    # 计算FK,获得关节位置和方向
+    # 计算FK,获得关节 全局 位置和方向
     translation, orientation = new_motion.batch_forward_kinematics()
     task = ShowBVHUpdate(viewer, new_motion.joint_name, translation, orientation) 
     viewer.addTask(task.update)
@@ -142,8 +146,8 @@ def main():
     # 请自行取消需要的注释并更改测试setting_id
     # 请不要同时取消多个注释，否则前者会被后者覆盖
     
-    # part1_translation_and_rotation(viewer, 0) # 数字代表不同的测试setting
-    part2_interpolate(viewer, 1) # 数字代表不同期望的前进速度
+    part1_translation_and_rotation(viewer, 0) # 数字代表不同的测试setting
+    # part2_interpolate(viewer, 1) # 数字代表不同期望的前进速度
     # part3_build_loop(viewer)
     # part4_concatenate(viewer, 0) # 数字代表不同的测试setting
     viewer.run()

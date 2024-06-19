@@ -13,7 +13,7 @@ def part1(viewer, bvh_file_path):
     viewer.run()
 
 
-def part2_one_pose(viewer, bvh_file_path):
+def part2_one_pose(viewer:SimpleViewer, bvh_file_path):
     """
     part2 读取一桢的pose, 完成part2_forward_kinematics函数
     """
@@ -22,6 +22,7 @@ def part2_one_pose(viewer, bvh_file_path):
     # 读取motion数据
     motion_data = load_motion_data(bvh_file_path)
     joint_positions, joint_orientations = part2_forward_kinematics(joint_name, joint_parent, joint_offset, motion_data, 0)
+    # show pose需要：joint名称列表，joint(全局)坐标列表，joint(全局)旋转列表
     viewer.show_pose(joint_name, joint_positions, joint_orientations)
     viewer.run()
 
@@ -80,17 +81,17 @@ def main():
 
     # 请取消注释需要运行的代码
     # part1
-    part1(viewer, bvh_file_path)
+    #part1(viewer, bvh_file_path)
 
     # part2
     # 显示其中一帧
     part2_one_pose(viewer, bvh_file_path)
     # 显示整个动画
-    part2_animation(viewer, bvh_file_path)
+    #part2_animation(viewer, bvh_file_path)
     
     # part3
     # 将A-run的数据，应用到T-walk的骨架上
-    part3_retarget(viewer, "data/walk60.bvh", "data/A_pose_run.bvh")
+    #part3_retarget(viewer, "data/walk60.bvh", "data/A_pose_run.bvh")
 
 
 if __name__ == "__main__":

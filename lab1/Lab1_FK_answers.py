@@ -75,17 +75,18 @@ def part1_calculate_T_pose(bvh_file_path):
 
 
 def part2_forward_kinematics(joint_name, joint_parent, joint_offset, motion_data, frame_id):
-    """请填写以下内容
-    输入: part1 获得的关节名字，父节点列表，偏移量列表
+    """
+    输入:joint_name 关节名字， (M)
+        joint_parent 父节点列表 (M)
+        joint_offset 偏移量列表 (M, 3)
         motion_data: np.ndarray，形状为(N,X)的numpy数组，其中N为帧数，X为Channel数
         frame_id: int，需要返回的帧的索引
     输出:
         joint_positions: np.ndarray，形状为(M, 3)的numpy数组，包含着所有关节的全局位置
         joint_orientations: np.ndarray，形状为(M, 4)的numpy数组，包含着所有关节的全局旋转(四元数)
-    Tips:
-        1. joint_orientations的四元数顺序为(x, y, z, w)
     """
-    # Transition data,  about channels position and channels rotations to index joint
+
+    # 获得该帧的数据
     motion_channels_data = motion_data[frame_id]
     root_position = np.array(motion_channels_data[0:3])
     # joint的局部旋转欧拉角
@@ -98,21 +99,22 @@ def part2_forward_kinematics(joint_name, joint_parent, joint_offset, motion_data
             joint_local_rotation.append(motion_channels_data[3*count+3: 3*count+6])
             count += 1
 
-    # Traverse list, parent node compute R finished before child node, so traverse list from start to end is OK
-    joint_positions = []
-    joint_orientations = []
+    joint_positions = [] # joint全局位置
+    joint_orientations = [] # joint全局旋转朝向(四元数形式)
     for i in range(len(joint_name)):
-        if joint_parent[i] == -1:
-            # 设定root根关节 的旋转和位移信息
+        if joint_parent[i] == -1: # 这是root根关节
             joint_orientation = R.from_euler('XYZ', joint_local_rotation[i], degrees=True)
             joint_position = root_position.reshape(1, -1)  # align matrix dimension
         else:
-            # Qi = Qi-parent * bvh_channels_get_i_rotation
-            # Pi = Pi-parent + offset-i * Oi-parent.T ,  note: Raw Vector * transpose Right Rotation matrix
-            joint_orientation = R.from_quat(joint_orientations[joint_parent[i]][0]
-                                            ) * R.from_euler('XYZ', joint_local_rotation[i], degrees=True)
-            joint_position = joint_positions[joint_parent[i]] + joint_offset[i] * np.asmatrix(
-                R.from_quat(joint_orientations[joint_parent[i]][0]).as_matrix()).transpose()
+            #【核心】：
+            # Ri(全局旋转) = Ri-parent * bvh_channels_get_i_rotation
+            # Pi(全局位置) = Pi-parent + Oi-parent@offset-i
+            joint_orientation = R.from_quat(joint_orientations[joint_parent[i]][0]) \
+                * R.from_euler('XYZ', joint_local_rotation[i], degrees=True)
+            joint_position = R.from_quat(joint_orientations[joint_parent[i]][0]).as_matrix()@joint_offset[i] \
+                + joint_positions[joint_parent[i]]
+        
+        # 收集数据
         joint_positions.append(np.array(joint_position))
         joint_orientations.append(joint_orientation.as_quat().reshape(1, -1))
 

@@ -180,7 +180,7 @@ class SimpleViewer(ShowBase):
         
         self.setFrameRateMeter(True)
         globalClock.setMode(ClockObject.MLimited)
-        globalClock.setFrameRate(60)
+        globalClock.setFrameRate(60)  # set frameRate
         
         self.load_ground()
         
