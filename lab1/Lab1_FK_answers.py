@@ -125,7 +125,8 @@ def part2_forward_kinematics(joint_name, joint_parent, joint_offset, motion_data
 
 def part3_retarget_func(T_pose_bvh_path, A_pose_bvh_path):
     """
-    将 A-pose的bvh重定向到T-pose上
+    将 A-pose的bvh重定向到T-pose骨架上
+    思路：先获得“A-->T 各个关节的旋转R，然后应用 R * BVH对应关节的旋转，就行了”
     输入: 两个bvh文件的路径
     输出: 
         motion_data: np.ndarray，形状为(N,X)的numpy数组，其中N为帧数，X为Channel数。retarget后的运动数据
@@ -147,29 +148,29 @@ def part3_retarget_func(T_pose_bvh_path, A_pose_bvh_path):
 
     motion_data = []
     # for i in range(1): debug init pose. lShoulder add 0,0,-45, rShoulder add 0,0,45
-    # 相同骨架下，Tpose转A-pose，只需要所有肩膀关节，旋转45度即可
-    # BVH中，保存的都是相对关节旋转
+    # 相同骨架下，将 A-pose的bvh重定向到T-pose骨架上，只需要A的BVH叠加一个R
+    # BVH中的关节旋转，都是相对父关节的相对旋转
     for i in range(A_motion_data.shape[0]):
         data = []
         for joint in T_joint_name:
             index = A_joint_map[joint]
 
-            if joint == 'RootJoint':
+            if joint == 'RootJoint': # root joint
                 data += list(A_motion_data[i][0:6])
             elif joint == 'lShoulder':
-                # 原本的关节 乘以 一个旋转四元数， 得到新的关节位置
-                Rot = (R.from_euler('XYZ', list(A_motion_data[i][index * 3 + 3: index*3 + 6]), degrees=True) \
-                       * R.from_euler('XYZ', [0., 0., -45.], degrees=True)
+                # 原本的关节 乘以 一个旋转， 得到新的关节位置
+                Rot = (R.from_euler('XYZ', [0., 0., -45.], degrees=True)  \
+                       * R.from_euler('XYZ', list(A_motion_data[i][index * 3 + 3: index*3 + 6]), degrees=True)
                        ).as_euler('XYZ',True)
                 data += list(Rot)
             elif joint == 'rShoulder':
-                Rot = (R.from_euler('XYZ', list(A_motion_data[i][index * 3 + 3: index*3 + 6]), degrees=True) \
-                       * R.from_euler('XYZ', [0., 0., 45.], degrees=True)
+                Rot = (R.from_euler('XYZ', [0., 0., 45.], degrees=True  \
+                       * R.from_euler('XYZ', list(A_motion_data[i][index * 3 + 3: index*3 + 6]), degrees=True))
                        ).as_euler('XYZ',True)
                 data += list(Rot)
-            elif '_end' in joint:
+            elif '_end' in joint: #末端关节不处理
                 continue
-            else:
+            else: # 其他关节保持不变
                 data += list(A_motion_data[i][index * 3 + 3: index * 3 + 6])
         # data就是 这一帧retarget后的数据
         motion_data.append(np.array(data).reshape(1, -1))

@@ -50,7 +50,7 @@ def part2_animation(viewer, bvh_file_path):
 
 def part3_retarget(viewer, T_pose_bvh_path, A_pose_bvh_path):
     """
-    将 A-pose的bvh重定向到T-pose上   A[数据用A]---->T[骨架层级用T]
+    将 A-pose的bvh动作 重定向到T-pose上   A[数据用A]---->T[骨架层级用T]
     Tips:
         我们不需要T-pose bvh的动作数据，只需要其定义的骨骼模型
     """
@@ -87,11 +87,11 @@ def main():
     # 显示其中一帧
     part2_one_pose(viewer, bvh_file_path)
     # 显示整个动画
-    #part2_animation(viewer, bvh_file_path)
+    part2_animation(viewer, bvh_file_path)
     
     # part3
     # 将A-run的数据，应用到T-walk的骨架上
-    #part3_retarget(viewer, "data/walk60.bvh", "data/A_pose_run.bvh")
+    part3_retarget(viewer, "data/walk60.bvh", "data/A_pose_run.bvh")
 
 
 if __name__ == "__main__":
