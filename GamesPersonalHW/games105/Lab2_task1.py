@@ -306,25 +306,6 @@ def blend_two_motions(bvh_motion1, bvh_motion2, alpha):
         for l in range(0, len(res.joint_rotation[0])):
             res.joint_rotation[i, l, :] = slerp(bvh_motion1.joint_rotation[j,l,:], bvh_motion2.joint_rotation[k, l, :], alpha[i])
 
-            # cos_half_theta = np.dot( bvh_motion1.joint_rotation[j,l,:], bvh_motion2.joint_rotation[k, l, :])
-            # temp_b = bvh_motion1.joint_rotation[j,l,:]
-            #
-            # if cos_half_theta < 0.:
-            #     cos_half_theta = -cos_half_theta
-            #     temp_b = -bvh_motion1.joint_rotation[j, l,:]
-            #
-            # half_theta = np.arccos(cos_half_theta)
-            # sin_half_theta = np.sin(half_theta)
-            #
-            # if sin_half_theta > 0.001:
-            #     alpha_1 = np.sin( (1-alpha[i]) * half_theta) / sin_half_theta
-            #     alpha_2 = np.sin( alpha[i] * half_theta) / sin_half_theta
-            # else:
-            #     alpha_1 = 1- alpha[i]
-            #     alpha_2 = alpha[i]
-            # res.joint_rotation[i,l,:] = alpha_1 * temp_b + alpha_2 * bvh_motion2.joint_rotation[k, l,:]
-            # res.joint_rotation[i,l,:] /= np.linalg.norm(res.joint_rotation[i,l,:])
-
     return res
 
 # part3

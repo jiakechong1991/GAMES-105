@@ -87,7 +87,7 @@ class BVHMotion():
         
         # 一些local数据, 对应bvh里的channel, XYZposition和 XYZrotation
         #! 这里我们把没有XYZ position的joint的position设置为offset, 从而进行统一
-        self.joint_position = None # (N,M,3) 的ndarray, 局部平移
+        self.joint_position = None # (N,M,3) 的ndarray, 局部平移（默认姿态下，joint的offset）
         self.joint_rotation = None # (N,M,4)的ndarray, 用四元数表示的局部旋转
         
         if bvh_file_name is not None:
@@ -209,13 +209,12 @@ class BVHMotion():
         '''
         Ry = np.zeros_like(rotation)
         Rxz = np.zeros_like(rotation)
-        # TODO: 你的代码
-        # 将四元数旋转分解为绕y轴的旋转，和转轴在xz平面的旋转，先得到Ry，再逆运算得到Rxz
+        
+        # 将四元数 转成欧拉角，然后获得Y方向的旋转量，以此初始化一个四元数
         Ry = R.from_quat(rotation).as_euler("XYZ", degrees=True)
         Ry = R.from_euler("XYZ", [0, Ry[1], 0], degrees=True)
 
-        # Ry = R.from_quat(rotation).
-
+        # 将输入的旋转，左乘 Ry的逆，想到那关于 把y轴的旋转清除，得到xz的旋转
         Rxz = Ry.inv() * R.from_quat(rotation)
         
         return Ry, Rxz
@@ -226,13 +225,11 @@ class BVHMotion():
         计算出新的joint_position和joint_rotation
         使第frame_num帧的根节点平移为target_translation_xz, 水平面朝向为target_facing_direction_xz
         frame_num: int
-        target_translation_xz: (2,)的ndarray
-        target_faceing_direction_xz: (2,)的ndarray，表示水平朝向。你可以理解为原本的z轴被旋转到这个方向。
+        target_translation_xz: 目标position   (2,)的ndarray
+        target_faceing_direction_xz: face朝向 (2,)的ndarray
         Tips:
             主要是调整root节点的joint_position和joint_rotation
             frame_num可能是负数，遵循python的索引规则
-            你需要完成并使用decompose_rotation_with_yaxis
-            输入的target_facing_direction_xz的norm不一定是1
         '''
         
         res:BVHMotion  = self.raw_copy() # 拷贝一份，不要修改原始数据
@@ -240,22 +237,30 @@ class BVHMotion():
         # 比如说，你可以这样调整第frame_num帧的根节点平移
         offset = target_translation_xz - res.joint_position[frame_num, 0, [0,2]]
         res.joint_position[:, 0, [0,2]] += offset
-        # TODO: 你的代码
-
+        
+        # face向量与x-z轴的旋转角 的sin,cos值
+        # 这是默认：BVH在default-pose中，face是朝向z轴的
         sin_theta_xz = np.cross(target_facing_direction_xz, np.array([0, 1])) / np.linalg.norm(target_facing_direction_xz)
         cos_theta_xz = np.dot(target_facing_direction_xz, np.array([0, 1])) / np.linalg.norm(target_facing_direction_xz)
         theta = np.arccos(cos_theta_xz)
         if sin_theta_xz < 0:
             theta = 2 * np.pi - theta
+        # 上面的旋转角，其实是 绕着Y轴旋转的
         new_root_Ry = R.from_euler("Y", theta, degrees=False)
+        # 把[frame_num, 0[root joint], :【rotaton】] 分解成y和xz 两个分量 
         R_y, _ = self.decompose_rotation_with_yaxis(res.joint_rotation[frame_num, 0, :])
-        # 获得更新后的旋转角
+        # 将root joint的旋转, 先左y轴逆旋转，再左乘新的旋转量。
         res.joint_rotation[:, 0, :] = (new_root_Ry * R_y.inv() * R.from_quat(res.joint_rotation[:, 0, :])).as_quat()
-        # 根据旋转角，更新全部joint的position
-        for i in range(len(res.joint_position)):
-             res.joint_position[i, 0,:] = (new_root_Ry * R_y.inv()).as_matrix()  @ (res.joint_position[i, 0, :] - res.joint_position[frame_num, 0, :]) + res.joint_position[frame_num,0,:]
-
-
+        
+        # 根据新旋转角，更新后续帧的root-joint的 position
+        # 逐帧 fix root-joint的position， 因为BVH的开头帧旋转了，后续的joint的position需要更新
+        for i in range(len(res.joint_position)): 
+            rotation_ = (new_root_Ry * R_y.inv()).as_matrix()
+            offset_ = (res.joint_position[i, 0, :] - res.joint_position[frame_num, 0, :])
+            base_ = res.joint_position[frame_num,0,:]
+            # 旋转*offet, 获得 新的offset的投影坐标， 然后 加上 base_
+            res.joint_position[i, 0,:] = rotation_@offset_ + base_
+    
         return res
 
 # part2
@@ -264,17 +269,31 @@ def blend_two_motions(bvh_motion1, bvh_motion2, alpha):
     blend两个bvh动作
     假设两个动作的帧数分别为n1, n2
     alpha: 0~1之间的浮点数组，形状为(n3,)
-    返回的动作应该有n3帧，第i帧由(1-alpha[i]) * bvh_motion1[j] + alpha[i] * bvh_motion2[k]得到
-    i均匀地遍历0~n3-1的同时，j和k应该均匀地遍历0~n1-1和0~n2-1
     '''
     
     res = bvh_motion1.raw_copy()
     res.joint_position = np.zeros((len(alpha), res.joint_position.shape[1], res.joint_position.shape[2]))
     res.joint_rotation = np.zeros((len(alpha), res.joint_rotation.shape[1], res.joint_rotation.shape[2]))
-    res.joint_rotation[...,3] = 1.0
+    res.joint_rotation[..., 3] = 1.0
 
     # TODO: 你的代码
-    
+    n_1 = len(bvh_motion1.joint_position)
+    n_2 = len(bvh_motion2.joint_position)
+    n_3 = len(alpha)
+    # linear interporation
+    for i in range(0, n_3):
+        # 插值点的确定方式： 按照 动画播放比例 来确定另外2个参考animation的插值点
+        j =int( (i * n_1) /n_3)
+        k =int( (i * n_2) /n_3)
+        # 关节相对offset(link长度) 插值
+        res.joint_position[i, :, :] = (1-alpha[i]) * bvh_motion1.joint_position[j, :, :] \
+            + (alpha[i]) * bvh_motion2.joint_position[k, :, :]
+
+        # 对关节旋转插值
+        # 四元数s_leap:
+        for l in range(0, len(res.joint_rotation[0])):
+            res.joint_rotation[i, l, :] = Slerp(bvh_motion1.joint_rotation[j,l,:], bvh_motion2.joint_rotation[k, l, :], alpha[i])
+
     return res
 
 # part3

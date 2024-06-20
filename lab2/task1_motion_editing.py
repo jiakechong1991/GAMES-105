@@ -42,14 +42,15 @@ def part1_translation_and_rotation(viewer:SimpleViewer, setting_id):
     # 根据setting_id 选择不同的数据
     bvh_list = ['motion_material/walk_forward.bvh', 'motion_material/run_forward.bvh', 'motion_material/walk_and_turn_left.bvh']
     pos_xz_list = [np.array([-4,4]), np.array([2,4]), np.array([6,1])]
+    # x-z平面上的 face朝向【其实就是BVH的root-joint的朝向】
     facing_xz_list = [np.array([1,1]), np.array([5,1]), np.array([1,1])]
     frame_list = [0, -1, -1]
     
     # 读取设置
     bvh = bvh_list[setting_id]  # 待操作的BVH动作
     pos = pos_xz_list[setting_id]  # 目标位置
-    facing_xz = facing_xz_list[setting_id]  # 面向该方向（x-z平面， Y向上）
-    frame = frame_list[setting_id] # 帧ID 
+    facing_xz = facing_xz_list[setting_id]  # face该方向（x-z平面， Y向上）
+    frame = frame_list[setting_id] # 帧ID 0
 
     original_motion = BVHMotion(bvh)
     # 使第frame_num帧的根节点平移为target_translation_xz, 水平面朝向为target_facing_direction_xz
@@ -70,26 +71,39 @@ def part1_translation_and_rotation(viewer:SimpleViewer, setting_id):
     return
 
 def part2_interpolate(viewer, v):
-    
+    """插值两个动作，根据速度v"""
     # 读取动作
     walk_forward = BVHMotion('motion_material/walk_forward.bvh')
     run_forward = BVHMotion('motion_material/run_forward.bvh')
+    #print(walk_forward.joint_name)
+    #print(run_forward.joint_name)
+    # 这两个BVH的骨架完全相同，但是可能motion data部分，chanle顺序不同，所以要把 关节顺序对齐
     run_forward.adjust_joint_name(walk_forward.joint_name)
     
-    # 调整方向和位置, 对齐第一帧
+    # 对齐第一帧： 调整到 指定的 方向/位置
     walk_forward = walk_forward.translation_and_rotation(0, np.array([0,0]), np.array([0,1]))
     run_forward = run_forward.translation_and_rotation(0, np.array([0,0]), np.array([0,1]))
     
     # 计算插值系数
+    # walk speed
+    #  [-1(最后一帧),0(root-joint),2(z偏移)] -- 这是一个朝着z轴方向walk的动画
+    # 速度 = 位移/时间
     v1 = (walk_forward.joint_position[-1,0,2] / walk_forward.motion_length)*60
+    # run speed
     v2 = (run_forward.joint_position[-1,0,2] / run_forward.motion_length)*60
+    # input-v 对应的speed
     blend_weight = (v-v1)/(v2-v1)
-    distance = (1-blend_weight)*walk_forward.joint_position[-1,0,2] + blend_weight*run_forward.joint_position[-1,0,2]
+    # end位移 = (1-插值系数)*walk位移 + 插值系数*run位移
+    distance = (1-blend_weight)*walk_forward.joint_position[-1,0,2] \
+        + blend_weight*run_forward.joint_position[-1,0,2]
+    # end时，应用使用多少帧
     cycle_time = np.around(distance / v*60).astype(np.int32)
+    # 每一帧的 混合系数
     alpha = np.ones((cycle_time,)) * blend_weight
     
     # 插值
     motion = blend_two_motions(walk_forward, run_forward, alpha)
+    # 全局
     tanslation, orientation = motion.batch_forward_kinematics()
     task = ShowBVHUpdate(viewer, motion.joint_name, tanslation, orientation)
     viewer.addTask(task.update)
@@ -132,6 +146,7 @@ def part4_concatenate(viewer, setting_id):
     run_forward = BVHMotion('motion_material/run_forward.bvh')
     run_forward.adjust_joint_name(walk_forward.joint_name)
     
+    # 拼接两端bvh
     motion = concatenate_two_motions(walk_forward, run_forward, mix_time, 30)
     translation, orientation = motion.batch_forward_kinematics()
     task = ShowBVHUpdate(viewer, motion.joint_name, translation, orientation)
@@ -146,10 +161,12 @@ def main():
     # 请自行取消需要的注释并更改测试setting_id
     # 请不要同时取消多个注释，否则前者会被后者覆盖
     
-    part1_translation_and_rotation(viewer, 0) # 数字代表不同的测试setting
+    # 调整初始帧
+    #part1_translation_and_rotation(viewer, 0) # 数字代表不同的测试setting
     # part2_interpolate(viewer, 1) # 数字代表不同期望的前进速度
-    # part3_build_loop(viewer)
-    # part4_concatenate(viewer, 0) # 数字代表不同的测试setting
+    part3_build_loop(viewer)
+    1/0
+    part4_concatenate(viewer, 0) # 数字代表不同的测试setting
     viewer.run()
     
 if __name__ == '__main__':
