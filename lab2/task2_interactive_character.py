@@ -2,7 +2,7 @@ from Viewer.controller import SimpleViewer, Controller
 from answer_task2 import *
 
 class InteractiveUpdate():
-    def __init__(self, viewer, controller, character_controller):
+    def __init__(self, viewer, controller:Controller, character_controller:CharacterController):
         self.viewer = viewer
         self.controller = controller
         self.character_controller = character_controller
@@ -10,6 +10,7 @@ class InteractiveUpdate():
     def update(self, task):
         desired_pos_list, desired_rot_list, desired_vel_list, desired_avel_list, current_gait = \
             self.controller.get_desired_state()
+        
         character_state = self.character_controller.update_state(
                 desired_pos_list, desired_rot_list, 
                 desired_vel_list, desired_avel_list, current_gait
